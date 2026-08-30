@@ -1,3 +1,0 @@
-# Use python 3.10.11
-aiohttp == 3.10.10
-websockets == 13.1

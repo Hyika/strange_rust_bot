@@ -1,0 +1,13 @@
+[package]
+name = "rust-based-bot"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+tokio-tungstenite = { version = "0.27", features = ["native-tls"] }
+futures-util = "0.3"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+dotenvy = "0.15.7"
+serde_repr = "0.1.21"

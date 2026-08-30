@@ -2,7 +2,6 @@
 .vscode/
 .gitconfig
 .gitignore
-server_info.json
-user_settings.json
-test.py
-json/
+.env
+Cargo.lock
+target/
