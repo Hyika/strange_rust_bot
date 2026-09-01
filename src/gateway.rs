@@ -24,6 +24,32 @@ impl Gateway {
         }
     }
 
+    pub async fn connect(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let (ws_stream, _) = tokio_tungstenite::connect_async(&self.url).await?;
+        let (mut write, mut read) = ws_stream.split();
+
+        // Send Identify payload
+        let identify_payload = create_identify(&self.token);
+        send_payload(&mut write, &identify_payload).await?;
+
+        // Handle incoming messages
+        while let Some(message) = read.next().await {
+            match message? {
+                Message::Text(text) => {
+                    let inbound: InboundPayload = serde_json::from_str(&text)?;
+                    println!("Received: {:?}", inbound);
+                }
+                Message::Close(_) => {
+                    println!("Connection closed");
+                    break;
+                }
+                _ => {}
+            }
+        }
+
+        Ok(())
+    }
+
     pub async fn send_payload<T: Serialize>(
         write: &mut SplitSink<
             WebSocketStream<MaybeTlsStream<TcpStream>>,
