@@ -3,5 +3,6 @@
 .gitconfig
 .gitignore
 .env
+.DS_Store
 Cargo.lock
 target/
