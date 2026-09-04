@@ -1,9 +1,9 @@
-use futures_util::{SinkExt, StreamExt, stream::{SplitSink, SplitStream}};
-use tokio_tungstenite::{connect_async, WebSocketStream, tungstenite::protocol::Message};
-use tokio::{sync::Mutex, net::TcpStream};
+use futures_util::{SinkExt, StreamExt};
+use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
+use tokio::{sync::Mutex};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
-use std::{f32::consts::E, sync::Arc};
+use std::{sync::Arc};
 
 
 #[derive(Serialize_repr, Debug)]
@@ -72,7 +72,8 @@ pub struct IdentifyProperties{
 pub struct Gateway {
     token: String, 
     url: String, 
-    session_id: Arc<Mutex<Option<String>>>, 
+    resume_url: Option<String>, 
+    session_id: Arc<Mutex<Option<String>>>,
     sequence_num: Arc<Mutex<Option<u64>>>, 
 }
 
@@ -81,6 +82,7 @@ impl Gateway {
         Gateway {
             token, 
             url: "wss://gateway.discord.gg/?v=10&encoding=json".to_string(), 
+            resume_url: None, 
             session_id: Arc::new(Mutex::new(None)),
             sequence_num: Arc::new(Mutex::new(None)),
         }
@@ -97,6 +99,9 @@ impl Gateway {
 
         let write_seq_num = Arc::clone(&self.sequence_num);
         let read_seq_num = Arc::clone(&self.sequence_num);
+
+        let write_ses_id = Arc::clone(&self.session_id); 
+        let read_ses_id = Arc::clone(&self.session_id);
 
         let sending_task = tokio::spawn(async move {
             while let Some(op) = rx.recv().await {
@@ -124,7 +129,7 @@ impl Gateway {
                     // OutboundOpcode::RequestGuildMembers => {}
                     // OutboundOpcode::RequestSoundboardSounds => {}
                 };
-                println!("Sending message: {:?}", message);
+
                 write.send(message?).await?;
             }
 
@@ -139,7 +144,7 @@ impl Gateway {
                             Ok(payload) => {
                                 match payload.op {
                                     InboundOpcode::Dispatch => {
-                                        println!("OPCODE 0 : Received Dispatch event");
+                                        println!("OPCODE 0 : Received Dispatch event. ");
 
                                         if let Some(num) = payload.s {
                                             let mut seq = read_seq_num.lock().await;
@@ -148,10 +153,12 @@ impl Gateway {
                                             println!("Sequence updated: {}", num);
                                         }
                                     }
-                                    InboundOpcode::Reconnect => {}
+                                    InboundOpcode::Reconnect => {
+                                        println!("[OP 7] Received Reconnect event. ")
+                                    }
                                     InboundOpcode::InvalidSession => {}
                                     InboundOpcode::Hello => {
-                                        println!("OPCODE 10 : Received Hello event");
+                                        println!("[OP 10] Received Hello event. ");
 
                                         tx.send(OutboundOpcode::Identify).await?;
                                     
@@ -181,7 +188,7 @@ impl Gateway {
                                             Ok::<(), Box<dyn std::error::Error + Send + Sync>>(())
                                         });
                                     }
-                                    InboundOpcode::HeartbeatAck => {}
+                                    InboundOpcode::HeartbeatAck => println!("[OP 11] Recieved Heartbeat ACK")
                                 }
                             }
                             Err(error) => {
@@ -203,22 +210,6 @@ impl Gateway {
         }); 
 
         let _ = tokio::join!(listening_task, sending_task); 
-        Ok(())
-    }
-
-    pub async fn send_payload<T: Serialize>(
-        write: &mut SplitSink<
-            WebSocketStream<tokio_tungstenite::MaybeTlsStream<TcpStream>>,
-            Message
-        >,
-        payload: &OutboundPayload<T>,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let json = serde_json::to_string(payload)?;
-
-        write
-            .send(Message::Text(json.into()))
-            .await?;
-
         Ok(())
     }
 }
