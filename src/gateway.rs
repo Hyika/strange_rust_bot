@@ -8,7 +8,7 @@ use std::{sync::Arc};
 
 #[derive(Serialize_repr, Debug)]
 #[repr(u8)]
-pub enum OutboundOpcode {
+pub enum GatewayOutboundOpcode {
     Heartbeat = 1,
     Identify = 2,
     PresenceUpdate = 3,
@@ -20,12 +20,12 @@ pub enum OutboundOpcode {
 
 // user -> discord
 #[derive(Debug, Serialize)]
-pub struct OutboundPayload<T> {
-    op: OutboundOpcode, 
+pub struct GatewayOutboundPayload<T> {
+    op: GatewayOutboundOpcode, 
     d: T,
 }
 
-impl<T> OutboundPayload<T> {
+impl<T> GatewayOutboundPayload<T> {
     pub fn to_message(&self) -> Result<Message, Box<dyn std::error::Error + Send + Sync>>
     where
         T: Serialize,
@@ -37,7 +37,7 @@ impl<T> OutboundPayload<T> {
 
 #[derive(Deserialize_repr, Debug)]
 #[repr(u8)]
-pub enum InboundOpcode {
+pub enum GatewayInboundOpcode {
     Dispatch = 0,
     Reconnect = 7,
     InvalidSession = 9,
@@ -47,8 +47,8 @@ pub enum InboundOpcode {
 
 // discord -> user
 #[derive(Debug, Deserialize)]
-pub struct InboundPayload {
-    pub op: InboundOpcode, 
+pub struct GatewayInboundPayload {
+    pub op: GatewayInboundOpcode, 
     pub d: serde_json::Value,
     pub s: Option<u64>, 
     pub t: Option<String>, 
@@ -95,7 +95,7 @@ impl Gateway {
 
         let (mut write, mut read) = ws_stream.split();
         
-        let (tx, mut rx) = tokio::sync::mpsc::channel::<OutboundOpcode>(32);
+        let (tx, mut rx) = tokio::sync::mpsc::channel::<GatewayOutboundOpcode>(32);
 
         let write_seq_num = Arc::clone(&self.sequence_num);
         let read_seq_num = Arc::clone(&self.sequence_num);
@@ -106,8 +106,8 @@ impl Gateway {
         let sending_task = tokio::spawn(async move {
             while let Some(op) = rx.recv().await {
                 let message = match op {
-                    OutboundOpcode::Identify => OutboundPayload {
-                            op: OutboundOpcode::Identify,
+                    GatewayOutboundOpcode::Identify => GatewayOutboundPayload {
+                            op: GatewayOutboundOpcode::Identify,
                             d: IdentifyData {
                                 token: token.clone(),
                                 intents: 513, // Example intents
@@ -118,16 +118,16 @@ impl Gateway {
                                 },
                             },
                         }.to_message(),
-                    OutboundOpcode::Heartbeat => OutboundPayload {
-                            op: OutboundOpcode::Heartbeat,
+                    GatewayOutboundOpcode::Heartbeat => GatewayOutboundPayload {
+                            op: GatewayOutboundOpcode::Heartbeat,
                             d: write_seq_num.lock().await.clone(),
                         }.to_message(), 
                     _ => continue, 
-                    // OutboundOpcode::PresenceUpdate => {}
-                    // OutboundOpcode::VoiceStateUpdate => {}
-                    // OutboundOpcode::Resume => {}
-                    // OutboundOpcode::RequestGuildMembers => {}
-                    // OutboundOpcode::RequestSoundboardSounds => {}
+                    // GatewayOutboundOpcode::PresenceUpdate => {}
+                    // GatewayOutboundOpcode::VoiceStateUpdate => {}
+                    // GatewayOutboundOpcode::Resume => {}
+                    // GatewayOutboundOpcode::RequestGuildMembers => {}
+                    // GatewayOutboundOpcode::RequestSoundboardSounds => {}
                 };
 
                 write.send(message?).await?;
@@ -140,10 +140,10 @@ impl Gateway {
             while let Some(message) = read.next().await {
                 match message {
                     Ok(Message::Text(message)) => {
-                        match serde_json::from_str::<InboundPayload>(&message) {
+                        match serde_json::from_str::<GatewayInboundPayload>(&message) {
                             Ok(payload) => {
                                 match payload.op {
-                                    InboundOpcode::Dispatch => {
+                                    GatewayInboundOpcode::Dispatch => {
                                         println!("OPCODE 0 : Received Dispatch event. ");
 
                                         if let Some(num) = payload.s {
@@ -153,14 +153,14 @@ impl Gateway {
                                             println!("Sequence updated: {}", num);
                                         }
                                     }
-                                    InboundOpcode::Reconnect => {
+                                    GatewayInboundOpcode::Reconnect => {
                                         println!("[OP 7] Received Reconnect event. ")
                                     }
-                                    InboundOpcode::InvalidSession => {}
-                                    InboundOpcode::Hello => {
+                                    GatewayInboundOpcode::InvalidSession => {}
+                                    GatewayInboundOpcode::Hello => {
                                         println!("[OP 10] Received Hello event. ");
 
-                                        tx.send(OutboundOpcode::Identify).await?;
+                                        tx.send(GatewayOutboundOpcode::Identify).await?;
                                     
                                         let heartbeat_interval = payload.d["heartbeat_interval"]
                                             .as_u64()
@@ -179,7 +179,7 @@ impl Gateway {
                                                 interval.tick().await;
 
                                                 println!("Sending heartbeat");
-                                                if let Err(e) = heartbeat_tx.send(OutboundOpcode::Heartbeat).await {
+                                                if let Err(e) = heartbeat_tx.send(GatewayOutboundOpcode::Heartbeat).await {
                                                     eprintln!("Failed to send heartbeat to channel: {}", e);
                                                     break; // 채널이 끊겼으므로 하트비트 루프 종료
                                                 }
@@ -188,7 +188,7 @@ impl Gateway {
                                             Ok::<(), Box<dyn std::error::Error + Send + Sync>>(())
                                         });
                                     }
-                                    InboundOpcode::HeartbeatAck => println!("[OP 11] Recieved Heartbeat ACK")
+                                    GatewayInboundOpcode::HeartbeatAck => println!("[OP 11] Recieved Heartbeat ACK")
                                 }
                             }
                             Err(error) => {
