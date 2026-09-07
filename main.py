@@ -3,7 +3,6 @@ import asyncio
 from collections import defaultdict
 from dataclasses import asdict, dataclass
 from enum import IntEnum
-import httpx
 import json
 import os
 from typing import Self
@@ -11,6 +10,7 @@ import urllib.request
 
 # 외부 라이브러리
 from dotenv import load_dotenv
+import httpx
 import websockets
 
 
@@ -748,17 +748,16 @@ class Client:
 
             await self.http.send_message(channel_id, reply)
         except Exception as e:
-            print(f'LLM 통신 에러: {e}')
+            print(f"LLM 통신 에러: {e}")
             await self.http.send_message(
-                channel_id, '답변 생성 중 오류가 발생했습니다.'
+                channel_id, "답변 생성 중 오류가 발생했습니다."
             )
-
 
     def run(self):        
         try:
             asyncio.run(self._start())
         except KeyboardInterrupt:
-            print('Disconnect using keyboard. ')
+            print("Disconnect using keyboard. ")
 
 
 
