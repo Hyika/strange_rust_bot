@@ -2,7 +2,6 @@ use crate::gateway::{Gateway};
 
 mod gateway; 
 
-
 async fn run(token: String) {
     let mut gateway = Gateway::new(token); 
 
