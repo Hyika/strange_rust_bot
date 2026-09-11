@@ -96,6 +96,8 @@ class Gateway:
         self.sequence_number: int | None = None
 
         self._heartbeat_task = None
+        self._can_resume = True
+
         self.client = client
 
 
@@ -114,7 +116,7 @@ class Gateway:
                 await asyncio.sleep(ms_interval/1000)
 
                 await self.send(GatewayPayload.heartbeat(sequence_number=self.sequence_number))
-                print("Heartbeat sent")
+                print("OP 1 | Heartbeat. ")
         except asyncio.CancelledError: 
             print("Heartbeak lifecycle cancelled. ")
             raise
@@ -128,55 +130,68 @@ class Gateway:
             await self.websocket.close(code=code, reason=reason)
             self.websocket = None
         else:
-            print("Websocket is not found")
+            print("Websocket is not found. ")
         
     async def connect(self): 
-        if self.websocket:
-            raise Exception("Websocket is already created.")
-        else:
-            self.websocket = await websockets.connect(self.resume_url or self.url)
+        while self._can_resume: 
+            if self.websocket:
+                raise Exception("Websocket is already created.")
+            else:
+                self.websocket = await websockets.connect(self.resume_url or self.url)
 
-        while True: 
-            payload = await self.receive()
+            while True: 
+                payload = await self.receive()
 
-            match payload.op:
-                case GatewayOpcode.DISPATCH: 
-                    print(f'OP 0 | Dispatch received. ')
-                    self.sequence_number = payload.s
-                    await self.client.dispatch(data=payload.d, event_name=payload.t)
-                    
-                case GatewayOpcode.RECONNECT: 
-                    await self.close(code=4000, reason="Reconnecting")
-                    break
+                match payload.op:
+                    case GatewayOpcode.DISPATCH: 
+                        print(f"OP 0 | Dispatch received. ")
+                        self.sequence_number = payload.s
+                        await self.client.dispatch(data=payload.d, event_name=payload.t)
+                        
+                    case GatewayOpcode.RECONNECT: 
+                        print(f"OP 7 | Reconnect received. ")
+                        await self.close(code=4000, reason="Reconnecting")
+                        break
 
-                case GatewayOpcode.HELLO: 
-                    print(f'OP 10 | Hello received. ')
+                    case GatewayOpcode.INVALID_SESSION: 
+                        print(f"OP 9 | Invalid session received. ")
+                        if payload.d: 
+                            await self.close(code=4000, reason="Reconnecting")
+                            self._can_resume = True
+                            break
+                        else: 
+                            await self.close()
+                            self._can_resume = False
+                            raise Exception("Can't resume. ")
 
-                    self._heartbeat_task = asyncio.create_task(self.heartbeat_lifecycle(payload.d['heartbeat_interval']))
+                    case GatewayOpcode.HELLO: 
+                        print(f"OP 10 | Hello received. ")
 
-                    if self.resume_url is None:
-                        await self.send(
-                            GatewayPayload.identify(
-                                identify_data=IdentifyData(
-                                    self.token, 
-                                    intents=33281, 
-                                    properties=IdentifyProperties(
-                                        os='linux', 
-                                        browser='titti', 
-                                        device='titti'
+                        self._heartbeat_task = asyncio.create_task(self.heartbeat_lifecycle(payload.d['heartbeat_interval']))
+
+                        if self.resume_url:
+                            await self.send(
+                                GatewayPayload.resume(
+                                    resume_data=ResumeData(
+                                        token=self.token, 
+                                        session_id=self.session_id, 
+                                        seq=self.sequence_number
                                     )
                                 )
                             )
-                        )
-                    else: 
-                        await self.send(
-                            GatewayPayload.resume(
-                                resume_data=ResumeData(
-                                    token=self.token, 
-                                    session_id=self.session_id, 
-                                    seq=self.sequence_number
-                                )
-                            )
-                        )
-                case GatewayOpcode.HEARTBEAT_ACK: 
-                    print(f'OP 11 | Heartbeat ACK received. ')
+                        else: 
+                            await self.send(
+                                 GatewayPayload.identify(
+                                     identify_data=IdentifyData(
+                                         self.token, 
+                                         intents=33281, 
+                                         properties=IdentifyProperties(
+                                             os='linux', 
+                                             browser='titti', 
+                                             device='titti'
+                                         )
+                                     )
+                                 )
+                             )
+                    case GatewayOpcode.HEARTBEAT_ACK: 
+                        print(f"OP 11 | Heartbeat ACK received. ")

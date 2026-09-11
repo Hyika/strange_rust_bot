@@ -8,8 +8,9 @@ from discord_http import Http
 
 class Client: 
     def __init__(self, token: str): 
-        self.bot_user_id: str | None = None
+        self.application_id: str | None = None
         self.token: str = token
+
         self.gateway: Gateway = None
         self.http: Http = None
 
@@ -31,24 +32,30 @@ class Client:
             except Exception as e: 
                 print(f"Gateway connection error. : {e}")
             finally:
-                if self.http: await self.http.close()
-                if self.gateway: await self.gateway.close()
-
+                if self.http: 
+                    await self.http.close()
+                if self.gateway: 
+                    await self.gateway.close()
+                print("Client disconnect. ")
 
     async def dispatch(self, data: dict, event_name: str | None): 
         match event_name: 
             case 'READY': 
                 self.gateway.resume_url = data['resume_gateway_url']
                 self.session_id = data['session_id']
-                self.bot_user_id = data['user']['id']
+                self.http.application_id = self.application_id = data['user']['id']
+
+                await self.http.make_a_global_cmd()
 
                 if func := self._listeners.get('ON_READY'):
                     await func()
 
             case "MESSAGE_CREATE": 
-
                 if func := self._listeners.get('ON_MESSAGE'):
                     await func()
+            case "INTERACTION_CREATE": 
+                print("Interaction create. ")
+                print(data)
             case _: 
                 print(f'{event_name}')
 
@@ -57,4 +64,4 @@ class Client:
         try:
             asyncio.run(self._start())
         except KeyboardInterrupt:
-            print("Disconnect using keyboard. ")
+            print("Disconnect by using keyboard. ")

@@ -26,3 +26,4 @@ if __name__ == '__main__':
     else:
         print(".env 파일에서 TOKEN을 찾을 수 없습니다.")
 
+    
