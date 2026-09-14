@@ -44,7 +44,7 @@ class Client:
                 self.gateway.resume_url = data['resume_gateway_url']
                 self.session_id = data['session_id']
                 self.http.application_id = self.application_id = data['user']['id']
-
+                print(data)
                 await self.http.make_a_global_cmd()
 
                 if func := self._listeners.get('ON_READY'):

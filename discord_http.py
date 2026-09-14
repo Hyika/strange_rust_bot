@@ -107,7 +107,7 @@ class Http:
         if not self.application_id:
             raise Exception("Application ID is not found. ")
 
-        url = f'{self.DISCORD_BASE_URL}/applications/{self.application_id}/commands/{1547905029451685900}'
+        url = f'{self.DISCORD_BASE_URL}/applications/{self.application_id}/guilds/{1542493954296127540}/commands'
 
         json = ApplicationCommandInput(
             name="llm", 
@@ -117,17 +117,17 @@ class Http:
                 ApplicationCommandOption(
                     name="local-model", 
                     description="Run by using local model. ", 
-                    type=ApplicationCommandOptionType.SUB_COMMAND,
+                    type=ApplicationCommandOptionType.STRING,
                 ), 
                 ApplicationCommandOption(
                     name="open-ai-compatible", 
                     description="Run by using OpenAI-compatible API. ", 
-                    type=ApplicationCommandOptionType.SUB_COMMAND,  
+                    type=ApplicationCommandOptionType.STRING, 
                 ), 
             ]
         ).to_dict()
 
-        response = await self.session.patch(url, headers=self.headers, json=json)
+        response = await self.session.post(url, headers=self.headers, json=json)
         response.raise_for_status()
         data = response.json()
 
