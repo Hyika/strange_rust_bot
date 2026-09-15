@@ -4,6 +4,7 @@ import asyncio
 # 사용자 라이브러리 
 from discord_gateway import Gateway
 from discord_http import Http
+from discord_openai import LLMProvider, OpenAI
 
 
 class Client: 
@@ -13,6 +14,7 @@ class Client:
 
         self.gateway: Gateway = None
         self.http: Http = None
+        self.openai: OpenAI = None
 
         self._listeners: dict = {}
 
@@ -38,6 +40,10 @@ class Client:
                     await self.gateway.close()
                 print("Client disconnect. ")
 
+    async def send(self, channel_id: int, message: str): 
+        await self.http.send_message(channel_id=channel_id, message=message)
+                             
+
     async def dispatch(self, data: dict, event_name: str | None): 
         match event_name: 
             case 'READY': 
@@ -51,11 +57,48 @@ class Client:
                     await func()
 
             case "MESSAGE_CREATE": 
+                guild_id = data['guild_id']
+                channel_id = data['channel_id']
+                if self.application_id != data['author']['id']:
+                    print('message_create')
+                    print(data)
+
+                    await self.send(
+                        channel_id=channel_id, 
+                        message="띠이잇... 하얀색!!!"
+                    )
+    
+                    if self.openai: 
+                        print('OpenAI-compatible-api detected! ')
+                        ai_response = await self.openai.send_message(prompt=data['content']) 
+
+                        self.send(
+                            channel_id=channel_id, 
+                            message=ai_response
+                        )
+
                 if func := self._listeners.get('ON_MESSAGE'):
                     await func()
+
+            case "MESSAGE_DELETE": 
+                guild_id = data['guild_id']
+                channel_id = data['channel_id']
+
+                await self.send(
+                    channel_id=channel_id, 
+                    message="메시지, 삭제했어..."
+                )
+
             case "INTERACTION_CREATE": 
                 print("Interaction create. ")
-                print(data)
+                print(data['data'])
+                print(data['data']['options'][0]['options'][0]['value']) 
+
+                self.openai = OpenAI(
+                    http=self.http, 
+                    provider=LLMProvider.LOCAL_MODEL, 
+                    base_url=data['data']['options'][0]['options'][0]['value']
+                )
             case _: 
                 print(f'{event_name}')
 

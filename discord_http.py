@@ -61,6 +61,22 @@ class ApplicationCommand:
     def to_dict(self): 
         return asdict(self)
 
+class InteractionCallbackType(IntEnum):
+    PONG = 1
+    CHANNEL_MESSAGE_WITH_SOURCE = 4 
+    DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE = 5 
+    DEFERRED_UPDATE_MESSAGE = 6 
+    UPDATE_MESSAGE = 7 
+    APPLICATION_COMMAND_AUTOCOMPLETE_RESULT = 8 
+    MODAL = 9 
+    PREMIUM_REQUIRED = 10 
+    LAUNCH_ACTIVITY = 12
+
+@dataclass
+class InteractionResponse: 
+    type: int 
+    data: dict | None
+
 class Http: 
     DISCORD_BASE_URL = 'https://discord.com/api/v10' 
     OPENAI_BASE_URL = 'http://127.0.0.1:8080'
@@ -100,6 +116,28 @@ class Http:
         data = response.json()
         gateway_url = f"{data['url']}/?v=10&encoding=json"
         return gateway_url
+        
+    async def send_message(self, channel_id: int, message: str) -> dict: 
+        if not self.session: 
+            raise Exception("Session is not found. ")
+
+        url = f'{self.DISCORD_BASE_URL}/channels/{channel_id}/messages'
+        json = {'content': message}
+
+        response = await self.session.post(url=url, headers=self.headers, json=json)
+        response.raise_for_status()
+        return response.json()
+
+    async def interaction_callback(self, interaction_id: int, interaction_token: str, data: str): 
+        url = f'{self.DISCORD_BASE_URL}/interactions/{interaction_id}/{interaction_token}/callback'
+        json = InteractionResponse(
+            type=InteractionCallbackType.CHANNEL_MESSAGE_WITH_SOURCE, 
+            data=data
+        )
+
+        response = await self.session.post(url=url, headers=self.headers, json=json)
+        response.raise_for_status()
+        return response.json()
     
     async def make_a_global_cmd(self) -> dict: 
         if not self.session: 
@@ -110,25 +148,33 @@ class Http:
         url = f'{self.DISCORD_BASE_URL}/applications/{self.application_id}/guilds/{1542493954296127540}/commands'
 
         json = ApplicationCommandInput(
-            name="llm", 
+            name='llm', 
             type=ApplicationCommandTypes.CHAT_INPUT, 
-            description="Run LLM in Discord. Select one whether you use local model or OpenAI-compatible API. ", 
+            description='Run LLM in Discord. Select one whether you use local model or OpenAI-compatible API. ', 
             options=[
                 ApplicationCommandOption(
-                    name="local-model", 
-                    description="Run by using local model. ", 
-                    type=ApplicationCommandOptionType.STRING,
+                    name='local-model', 
+                    description='Run by using local model. ', 
+                    type=ApplicationCommandOptionType.SUB_COMMAND, 
+                    options=[
+                        ApplicationCommandOption(
+                            name='url', 
+                            description='llama.cpp address ', 
+                            type=ApplicationCommandOptionType.STRING,  
+                        )
+                    ]
                 ), 
                 ApplicationCommandOption(
-                    name="open-ai-compatible", 
-                    description="Run by using OpenAI-compatible API. ", 
-                    type=ApplicationCommandOptionType.STRING, 
+                    name='open-ai-compatible',
+                    description='Run by using OpenAI-compatible API. ', 
+                    type=ApplicationCommandOptionType.SUB_COMMAND, 
+                    options=[
+                                            
+                    ]
                 ), 
             ]
         ).to_dict()
 
         response = await self.session.post(url, headers=self.headers, json=json)
         response.raise_for_status()
-        data = response.json()
-
-        return data
+        return response.json()

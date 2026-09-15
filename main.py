@@ -18,10 +18,6 @@ if __name__ == '__main__':
         async def on_ready(): 
             print("I'm ready!")
 
-        @client.event
-        async def on_message(): 
-            print("message sent!")
-
         client.run()
     else:
         print(".env 파일에서 TOKEN을 찾을 수 없습니다.")

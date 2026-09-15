@@ -130,7 +130,7 @@ class Gateway:
             await self.websocket.close(code=code, reason=reason)
             self.websocket = None
         else:
-            print("Websocket is not found. ")
+            print("Websocket is not found. ") 
         
     async def connect(self): 
         while self._can_resume: 
