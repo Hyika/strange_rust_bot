@@ -128,12 +128,12 @@ class Http:
         response.raise_for_status()
         return response.json()
 
-    async def interaction_callback(self, interaction_id: int, interaction_token: str, data: str): 
-        url = f'{self.DISCORD_BASE_URL}/interactions/{interaction_id}/{interaction_token}/callback'
+    async def interaction_callback(self, id: int, token: str, data: dict): 
+        url = f'{self.DISCORD_BASE_URL}/interactions/{id}/{token}/callback'
         json = InteractionResponse(
             type=InteractionCallbackType.CHANNEL_MESSAGE_WITH_SOURCE, 
             data=data
-        )
+        ).model_dump()
 
         response = await self.session.post(url=url, headers=self.headers, json=json)
         response.raise_for_status()

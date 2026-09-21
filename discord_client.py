@@ -93,12 +93,18 @@ class Client:
                 print("Interaction create. ")
                 print(data['data'])
                 print(data['data']['options'][0]['options'][0]['value']) 
-
+                
                 self.openai = OpenAI(
                     http=self.http, 
                     provider=LLMProvider.LOCAL_MODEL, 
                     base_url=data['data']['options'][0]['options'][0]['value']
                 )
+
+                id = data['data']['id']
+                value = data['data']['options'][0]['options'][0]['value']
+
+                res = await self.http.interaction_callback(id=id, token=self.token, data={"content":"확인했띳띠.."})
+                print(res)
             case _: 
                 print(f'{event_name}')
 
