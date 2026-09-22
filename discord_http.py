@@ -77,6 +77,9 @@ class InteractionResponse:
     type: int 
     data: dict | None
 
+    def to_dict(self): 
+        return asdict(self)
+
 class Http: 
     DISCORD_BASE_URL = 'https://discord.com/api/v10' 
     OPENAI_BASE_URL = 'http://127.0.0.1:8080'
@@ -95,7 +98,10 @@ class Http:
         if self.session:
             print("Session is already started. ")
         else: 
-            self.session = httpx.AsyncClient(headers=self.headers)
+            self.session = httpx.AsyncClient(
+                headers=self.headers, 
+                timeout=120.0
+            )
 
     async def close(self): 
         if self.session: 
@@ -133,10 +139,15 @@ class Http:
         json = InteractionResponse(
             type=InteractionCallbackType.CHANNEL_MESSAGE_WITH_SOURCE, 
             data=data
-        ).model_dump()
+        ).to_dict()
 
         response = await self.session.post(url=url, headers=self.headers, json=json)
         response.raise_for_status()
+        print(response.raise_for_status())
+        
+        if not response.content:
+            return None
+
         return response.json()
     
     async def make_a_global_cmd(self) -> dict: 

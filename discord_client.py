@@ -62,17 +62,13 @@ class Client:
                 if self.application_id != data['author']['id']:
                     print('message_create')
                     print(data)
-
-                    await self.send(
-                        channel_id=channel_id, 
-                        message="띠이잇... 하얀색!!!"
-                    )
     
                     if self.openai: 
                         print('OpenAI-compatible-api detected! ')
+                        print(data['content'])
                         ai_response = await self.openai.send_message(prompt=data['content']) 
-
-                        self.send(
+                        print('ai response: {ai_reponse}')
+                        await self.send(
                             channel_id=channel_id, 
                             message=ai_response
                         )
@@ -91,8 +87,6 @@ class Client:
 
             case "INTERACTION_CREATE": 
                 print("Interaction create. ")
-                print(data['data'])
-                print(data['data']['options'][0]['options'][0]['value']) 
                 
                 self.openai = OpenAI(
                     http=self.http, 
@@ -100,10 +94,10 @@ class Client:
                     base_url=data['data']['options'][0]['options'][0]['value']
                 )
 
-                id = data['data']['id']
-                value = data['data']['options'][0]['options'][0]['value']
+                id = data['id']
+                token = data['token']
 
-                res = await self.http.interaction_callback(id=id, token=self.token, data={"content":"확인했띳띠.."})
+                res = await self.http.interaction_callback(id=id, token=token, data={"content":"...@%@#$%!?"})
                 print(res)
             case _: 
                 print(f'{event_name}')
